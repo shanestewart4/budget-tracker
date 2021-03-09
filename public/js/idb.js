@@ -33,8 +33,10 @@ function saveRecord(record) {
 
 function uploadTransactions() {
     const transaction = db.transaction(["new_transaction"], "readonly");
-    const store = transaction.objectStore("pending");
+    const store = transaction.objectStore("new_transaction");
     const getAll = store.getAll();
+
+    console.log("")
 
     getAll.onsuccess = function (e) {
         if (getAll.result.length > 0) {
