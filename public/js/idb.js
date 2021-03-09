@@ -1,47 +1,42 @@
-const { application, response } = require("express");
-
-const indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
-
 // db variable
-
 let db;
-const request = indexedDB.open("budget", 1);
+const request = indexedDB.open("budget_tracker", 1);
 
-request.onupgradeneeded = (e) => {
-    e.target.result.createObjectStore("pending", {
-        keyPath: "id",
+request.onupgradeneeded = function  (e) {
+    const db = e.target.result;
+    db.createObjectStore("new_transaction", {
         autoIncrement: true
     });
 }
 
-request.onerror = (err) => {
-    console.log(err.message);
+request.onerror = function (e) {
+    console.log(e.target.errorCode);
 };
 
-request.onsuccess = (e) => {
+request.onsuccess = function (e) {
     db = e.target.result;
 
     if (navigator.onLine) {
-        checkDb();
+        uploadTransactions();
     }
 };
 
 // when user is offline
 
 function saveRecord(record) {
-    const transaction = db.transaction("pending", "readwrite");
-    const store = transaction.objectStore("pending");
+    const transaction = db.transaction(["new_transaction"], "readwrite");
+    const store = transaction.objectStore("new_transaction");
     store.add(record);
 };
 
 // function for when user goes online, sends transactions stored in db to the server
 
-function checkDb() {
-    const transaction = db.transaction("pending", "readonly");
+function uploadTransactions() {
+    const transaction = db.transaction(["new_transaction"], "readonly");
     const store = transaction.objectStore("pending");
     const getAll = store.getAll();
 
-    getAll.onsuccess = () => {
+    getAll.onsuccess = function (e) {
         if (getAll.result.length > 0) {
             fetch("/api/transaction/bulk", {
                 method: "POST",
@@ -52,10 +47,18 @@ function checkDb() {
                 }
             })
                 .then((response) => response.json())
-                .then(() => {
-                    const transaction = db.transaction("pending", "readwrite");
-                    const store = transaction.objectStore("pending");
+                .then((serverRes) => {
+                    if (serverRes.message) {
+                        throw new Error(serverRes)
+                    }
+                    const transaction = db.transaction(["new_transaction"], "readwrite");
+                    const store = transaction.objectStore(["new_transaction"]);
                     store.clear();
+
+                    alert("All transaction successfully uploaded!");
+                })
+                .catch((err) => {
+                    console.log(err);
                 });
         }
     };
@@ -63,4 +66,4 @@ function checkDb() {
 
 // event listener for app getting back online
 
-window.addEventListener("online", checkDb);
+window.addEventListener("online", uploadTransactions);

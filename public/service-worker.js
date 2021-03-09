@@ -1,17 +1,12 @@
 const FILES_TO_CACHE = [
-    "./js/idb.js",
     "./index.html",
+    "./js/idb.js",
     "./css/styles.css",
     "./js/index.js",
-    "./js/db.js",
-    "./icons",
+
     "./icons/icon-192x192.png",
     "./icons/icon-512x512.png",
-    "./manifest.json",
-    // bootstrap CSS & JS
-    "https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css",
-    "https://cdn.jsdelivr.net/npm/chart.js@2.8.0"
-
+    "./manifest.json"
 
 ];
 
@@ -30,6 +25,7 @@ self.addEventListener('install', function (e) {
         caches
             .open(CACHE_NAME)
             .then(cache => {
+                console.log('installing cache');
                 return cache.addAll(FILES_TO_CACHE);
             })
     );
