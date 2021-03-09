@@ -1,14 +1,13 @@
-const e = require("express");
-
 const FILES_TO_CACHE = [
-    "/",
-    "/index.html",
-    "/public/css/styles.css",
-    "/public/js/index.js",
-    "/public/js/db.js",
-    "/public/icons",
-    "/public/icons/icon-192x192.png",
-    "/public/icons/icon-512x512.png",
+    "./js/idb.js",
+    "./index.html",
+    "./css/styles.css",
+    "./js/index.js",
+    "./js/db.js",
+    "./icons",
+    "./icons/icon-192x192.png",
+    "./icons/icon-512x512.png",
+    "./manifest.json",
     // bootstrap CSS & JS
     "https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css",
     "https://cdn.jsdelivr.net/npm/chart.js@2.8.0"
@@ -16,60 +15,78 @@ const FILES_TO_CACHE = [
 
 ];
 
-// cache name 
-const CACHE_NAME = 'static-cache-v1';
-// data cache name
-const DATA_CACHE_NAME = 'data-cache-v1';
+// customized 
+const VERSION = "-version_01";
+const APP_NAME = "MyBudgetTracker"
+const DATA_NAME = "TransactionData"
+// cache & data name
+const CACHE_NAME = APP_NAME + VERSION;
+const DATA_CACHE_NAME = DATA_NAME + VERSION;
 
 // install
-self.addEventListener('install', (e) => {
-    console.log('[Service Worker] Install');
-    e.waitUntil((async () => {
-        const cache = await caches.open(cacheName);
-        console.log('[Service Worker] Caching all: app shell and content');
-        await cache.addAll(FILES_TO_CACHE);
-    })());
-});
 
+self.addEventListener('install', function (e) {
+    e.waitUntil(
+        caches
+            .open(CACHE_NAME)
+            .then(cache => {
+                return cache.addAll(FILES_TO_CACHE);
+            })
+    );
+    self.skipWaiting();
+});
 
 // activate
 
 self.addEventListener('activate', function (e) {
     e.waitUntil(
-        caches.keys().then(function (cacheNames) {
-            return Promise.all(
-                cacheNames.map(function (CACHE_NAME) {
+        caches.keys().then(keyList => {
+                return Promise.all(keyList.map(key => {
                     if (key !== CACHE_NAME && key !== DATA_CACHE_NAME) {
-                        return caches.delete(key);
-                    };
-
-                })
-            );
-        })
+                        return caches.delete(key)
+                    }
+                }))
+            })
+            
     );
     self.clients.claim();
 });
 
-
 // fetch
 
-self.addEventListener('fetch', (e) => {
-    if (e.request.url.includes("/api/") && e.request.method === "GET") {
-        e.respondWith((async () => {
-            const r = await caches.match(e.request);
-            console.log(`[Service Worker] Fetching resource: ${e.request.url}`);
-            if (r) { return r; }
-            const response = await fetch(e.request);
-            const cache = await caches.open(CACHE_NAME);
-            console.log(`[Service Worker] Caching new resource: ${e.request.url}`);
-            cache.put(e.request, response.clone());
-            return response;
-        }).catch(() => {return cache.match(e.request);})
-    }).catch((err) => console.log(err));   
+self.addEventListener('fetch', function (e) {
+    if (e.request.url.includes('/api/')) {
+        e.respondWith(
+            caches
+                .open(DATA_CACHE_NAME)
+                .then((cache) => {
+                    return fetch(e.request).then((response) => {
+                        if (response.status === 200) {
+                            cache.put(e.request.url, response.clone());
+                        }
+                        return response;
+                    })
+                    .catch((err) => {
+                        return cache.match(e.request);
+                    });
+                })
+                .catch((err) => console.log(err))   
+        );
+        return;
+    }
 
-    return;
+
     e.respondWith(
-    caches.match(e.request).then((response) => {
-        return response || fetch(e.request);
-    })
+        fetch(e.request).catch(function () {
+            return caches.match(e.request).then(function (cachedRes) {
+                if (cachedRes) {
+                    return cachedRes;
+                } else if (e.request.headers.get("accept").includes("text/html")) {
+                    return caches.match("/");
+                }
+            });
+        })
+        
+    );
+
 });
