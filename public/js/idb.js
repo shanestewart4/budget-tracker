@@ -36,8 +36,6 @@ function uploadTransactions() {
     const store = transaction.objectStore("new_transaction");
     const getAll = store.getAll();
 
-    console.log("")
-
     getAll.onsuccess = function (e) {
         if (getAll.result.length > 0) {
             fetch("/api/transaction/bulk", {
